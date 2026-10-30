@@ -169,6 +169,15 @@ private fun MainPage(
             }
         }
         item {
+            Toggle(
+                stringResource(R.string.unused_setting), stringResource(R.string.unused_setting_desc), s.unusedFolder,
+                warn = s.unusedFolder && !status.usageAccess,
+            ) { on ->
+                set { it.copy(unusedFolder = on) }
+                if (on && !status.usageAccess) actions.openUsageAccess()
+            }
+        }
+        item {
             Item(stringResource(R.string.hidden_apps), stringResource(R.string.hidden_apps_desc, hiddenCount)) { open(Page.Hidden) }
         }
         item {

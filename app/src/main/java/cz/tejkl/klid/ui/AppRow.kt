@@ -55,6 +55,7 @@ class AppMenuActions(
     val moveFavorite: (AppEntry, Int) -> Unit,
     val isHidden: (AppEntry) -> Boolean,
     val toggleHidden: (AppEntry) -> Unit,
+    val rename: (AppEntry) -> Unit,
     val openInfo: (AppEntry) -> Unit,
     val uninstall: (AppEntry) -> Unit,
 )
@@ -190,6 +191,10 @@ fun AppRow(
                     onClick = { menuOpen = false; menu.toggleHidden(app) },
                 )
             }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.rename)) },
+                onClick = { menuOpen = false; menu.rename(app) },
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.app_info)) },
                 onClick = { menuOpen = false; menu.openInfo(app) },

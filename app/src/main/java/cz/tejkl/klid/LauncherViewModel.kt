@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.Collator
@@ -35,24 +37,47 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     val settingsStore = SettingsStore.get(app)
     val settings: StateFlow<Settings> = settingsStore.settings
 
-    private val _apps = MutableStateFlow<List<AppEntry>>(emptyList())
+    /** Aplikace tak, jak je vrátil systém, bez vlastních názvů. */
+    private val systemApps = MutableStateFlow<List<AppEntry>>(emptyList())
 
-    /** Všechny aplikace včetně skrytých, abecedně. Pro hledání a správu skrytých. */
-    val allApps: StateFlow<List<AppEntry>> = _apps.asStateFlow()
+    /** Všechny aplikace včetně skrytých, s vlastními názvy, abecedně. */
+    private val _apps: StateFlow<List<AppEntry>> =
+        combine(systemApps, settings.map { it.labels }.distinctUntilChanged()) { apps, labels ->
+            val collator = Collator.getInstance(Locale.getDefault())
+            apps.map { app ->
+                val custom = labels[app.key]
+                if (custom == null) app else app.copy(label = custom, section = sectionOf(custom))
+            }.sortedWith { a, b -> collator.compare(a.label, b.label) }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val allApps: StateFlow<List<AppEntry>> = _apps
 
     val favoriteKeys: StateFlow<List<String>> = favoritesStore.keys
 
-    /** Aplikace pro abecední seznam: bez skrytých, v rámci písmene případně podle používání. */
+    private val systemUsage = MutableStateFlow<Map<String, Int>>(emptyMap())
+    private val lastUsed = MutableStateFlow<Map<String, Long>>(emptyMap())
+
+    /** Aplikace neotevřené přes půl roku (a ne čerstvě nainstalované). Bez přístupu k využití prázdné. */
+    val unusedApps: StateFlow<List<AppEntry>> =
+        combine(_apps, settings, favoritesStore.keys, lastUsed) { apps, s, pinnedKeys, last ->
+            if (!s.unusedFolder || last.isEmpty()) return@combine emptyList()
+            val threshold = System.currentTimeMillis() - UNUSED_AFTER_MS
+            apps.filter {
+                it.key !in s.hidden && it.key !in pinnedKeys &&
+                    it.installedAt < threshold && (last[it.packageName] ?: 0L) < threshold
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Aplikace pro abecední seznam: bez skrytých a nepoužívaných, v rámci písmene případně podle používání. */
     val drawerApps: StateFlow<List<AppEntry>> =
-        combine(_apps, settings, usageStore.scores) { apps, s, scores ->
-            val visible = apps.filter { it.key !in s.hidden }
+        combine(_apps, settings, usageStore.scores, unusedApps) { apps, s, scores, unused ->
+            val unusedKeys = unused.map { it.key }.toSet()
+            val visible = apps.filter { it.key !in s.hidden && it.key !in unusedKeys }
             if (!s.sortByUsage) visible
             else groupConsecutive(visible).flatMap { group ->
                 group.sortedByDescending { scores[it.key] ?: 0f }
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    private val systemUsage = MutableStateFlow<Map<String, Int>>(emptyMap())
 
     /** Pořadí podle používání: systémová statistika, jinak vlastní záznam spuštění. */
     private val ranked: StateFlow<List<AppEntry>> =
@@ -108,9 +133,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun reload() {
         viewModelScope.launch(Dispatchers.Default) {
             val ownPackage = getApplication<Application>().packageName
-            val collator = Collator.getInstance(Locale.getDefault())
             val iconSize = (48 * getApplication<Application>().resources.displayMetrics.density).toInt()
-            _apps.value = userManager.userProfiles.flatMap { user ->
+            systemApps.value = userManager.userProfiles.flatMap { user ->
                 val serial = userManager.getSerialNumberForUser(user)
                 launcherApps.getActivityList(null, user)
                     .filter { it.applicationInfo.packageName != ownPackage }
@@ -119,21 +143,30 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                         AppEntry(
                             key = "${info.componentName.flattenToString()}#$serial",
                             label = label,
+                            originalLabel = label,
                             packageName = info.applicationInfo.packageName,
                             component = info.componentName,
                             user = user,
                             icon = info.getBadgedIcon(0).toBitmap(iconSize, iconSize).asImageBitmap(),
                             section = sectionOf(label),
+                            installedAt = info.firstInstallTime,
                         )
                     }
-            }.sortedWith { a, b -> collator.compare(a.label, b.label) }
+            }
         }
     }
 
     fun refreshSystemUsage() {
         viewModelScope.launch(Dispatchers.IO) {
             systemUsage.value = SystemUsage.openCounts(getApplication())
+            lastUsed.value = SystemUsage.lastUsed(getApplication())
         }
+    }
+
+    /** Prázdný nebo původní název přejmenování zruší. */
+    fun rename(app: AppEntry, name: String) = settingsStore.update {
+        val clean = name.trim()
+        it.copy(labels = if (clean.isEmpty() || clean == app.originalLabel) it.labels - app.key else it.labels + (app.key to clean))
     }
 
     fun toggleFavorite(app: AppEntry) = favoritesStore.toggle(app.key)
@@ -207,5 +240,6 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private companion object {
         val CZECH_LETTERS = setOf('Č', 'Ř', 'Š', 'Ž')
         const val SUGGESTION_COUNT = 4
+        const val UNUSED_AFTER_MS = 182L * 24 * 60 * 60 * 1000
     }
 }

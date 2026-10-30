@@ -8,6 +8,15 @@
     <string name="move_down">Posunout dolů</string>
     <string name="hide_app">Skrýt aplikaci</string>
     <string name="unhide_app">Zobrazit aplikaci</string>
+    <string name="rename">Přejmenovat</string>
+    <string name="rename_title">Přejmenovat aplikaci</string>
+    <string name="rename_reset">Původní název</string>
+    <string name="save">Uložit</string>
+    <string name="cancel">Zrušit</string>
+    <string name="unused_folder">Nepoužívané</string>
+    <string name="unused_folder_count">%1$d aplikací neotevřených přes půl roku</string>
+    <string name="unused_setting">Složka nepoužívaných</string>
+    <string name="unused_setting_desc">Aplikace neotevřené přes 6 měsíců se přesunou do složky na konci seznamu. Hledání je najde dál.</string>
     <string name="app_info">Informace o aplikaci</string>
     <string name="uninstall">Odinstalovat</string>
     <string name="empty_home">Tady se objeví aplikace, které nejčastěji otevíráš.\nSeznam všech otevřeš tahem nahoru.</string>

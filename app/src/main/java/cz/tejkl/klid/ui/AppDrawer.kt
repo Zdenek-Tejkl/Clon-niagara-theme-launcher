@@ -1,6 +1,7 @@
 package cz.tejkl.klid.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -65,6 +66,16 @@ sealed interface DrawerRow {
     data class Web(val query: String) : DrawerRow {
         override val key get() = "web"
     }
+
+    /** Složka nepoužívaných aplikací na konci seznamu. */
+    data class Folder(val apps: List<AppEntry>, val expanded: Boolean) : DrawerRow {
+        override val key get() = "folder"
+    }
+
+    companion object {
+        /** Písmeno abecedy, které skočí na složku. */
+        const val FOLDER_LETTER = "…"
+    }
 }
 
 fun buildRows(apps: List<AppEntry>, withHeaders: Boolean): List<DrawerRow> {
@@ -92,6 +103,7 @@ fun AppDrawer(
     onLaunch: (AppEntry) -> Unit,
     onContact: (Contact) -> Unit,
     onWebSearch: (String) -> Unit,
+    onToggleFolder: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -173,6 +185,8 @@ fun AppDrawer(
                         badge = row.contact.name.take(1).uppercase(),
                     ) { onContact(row.contact) }
 
+                    is DrawerRow.Folder -> FolderRow(row, onToggleFolder)
+
                     is DrawerRow.Web -> ActionRow(
                         text = stringResource(R.string.web_search, row.query),
                         badge = "\u2197",
@@ -180,6 +194,40 @@ fun AppDrawer(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FolderRow(folder: DrawerRow.Folder, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Náhled složky: mřížka 2×2 z ikon prvních aplikací.
+        Column(Modifier.size(32.dp)) {
+            folder.apps.take(4).chunked(2).forEach { pair ->
+                Row {
+                    pair.forEach { Image(it.icon, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                }
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.unused_folder), style = ShadowedText, fontSize = 18.sp)
+            Text(
+                stringResource(R.string.unused_folder_count, folder.apps.size),
+                style = ShadowedText,
+                color = Secondary,
+                fontSize = 13.sp,
+            )
+        }
+        Text(if (folder.expanded) "\u2303" else "\u2304", style = ShadowedText, color = Secondary, fontSize = 18.sp)
     }
 }
 

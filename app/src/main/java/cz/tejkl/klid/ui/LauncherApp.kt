@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import cz.tejkl.klid.AppEntry
 import cz.tejkl.klid.LauncherStatus
 import cz.tejkl.klid.LauncherViewModel
 import cz.tejkl.klid.MediaHub
@@ -65,6 +66,7 @@ fun LauncherApp(
 ) {
     val allApps by viewModel.allApps.collectAsStateWithLifecycle()
     val drawerApps by viewModel.drawerApps.collectAsStateWithLifecycle()
+    val unusedApps by viewModel.unusedApps.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val favoriteKeys by viewModel.favoriteKeys.collectAsStateWithLifecycle()
@@ -77,6 +79,8 @@ fun LauncherApp(
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var scrubLetter by remember { mutableStateOf<String?>(null) }
+    var folderOpen by rememberSaveable { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<AppEntry?>(null) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
@@ -85,6 +89,7 @@ fun LauncherApp(
     fun closeDrawer() {
         keyboard?.hide()
         drawerOpen = false
+        folderOpen = false
         query = ""
         scope.launch { listState.scrollToItem(0) }
     }
@@ -104,8 +109,13 @@ fun LauncherApp(
         }
     }
 
-    val rows = remember(drawerApps, allApps, query, contacts) {
-        if (query.isBlank()) buildRows(drawerApps, withHeaders = true)
+    val rows = remember(drawerApps, unusedApps, folderOpen, allApps, query, contacts) {
+        if (query.isBlank()) {
+            val folder = if (unusedApps.isEmpty()) emptyList()
+            else listOf(DrawerRow.Folder(unusedApps, folderOpen)) +
+                (if (folderOpen) unusedApps.map { DrawerRow.App(it) } else emptyList())
+            buildRows(drawerApps, withHeaders = true) + folder
+        }
         else {
             // Hledání najde i skryté aplikace.
             val needle = query.trim().fold()
@@ -116,7 +126,10 @@ fun LauncherApp(
                 DrawerRow.Web(query.trim())
         }
     }
-    val letters = remember(drawerApps) { drawerApps.map { it.section }.distinct() }
+    val letters = remember(drawerApps, unusedApps) {
+        drawerApps.map { it.section }.distinct() +
+            (if (unusedApps.isEmpty()) emptyList() else listOf(DrawerRow.FOLDER_LETTER))
+    }
 
     val menu = AppMenuActions(
         isFavorite = { it.key in favoriteKeys },
@@ -124,6 +137,7 @@ fun LauncherApp(
         moveFavorite = viewModel::moveFavorite,
         isHidden = { it.key in settings.hidden },
         toggleHidden = viewModel::toggleHidden,
+        rename = { renaming = it },
         openInfo = viewModel::openAppInfo,
         uninstall = viewModel::uninstall,
     )
@@ -170,6 +184,7 @@ fun LauncherApp(
                         onLaunch = viewModel::launch,
                         onContact = actions::openContact,
                         onWebSearch = actions::webSearch,
+                        onToggleFolder = { folderOpen = !folderOpen },
                         onClose = ::closeDrawer,
                     )
                 }
@@ -180,7 +195,10 @@ fun LauncherApp(
                         onLetter = { letter ->
                             scrubLetter = letter
                             drawerOpen = true
-                            val index = rows.indexOfFirst { it is DrawerRow.Header && it.letter == letter }
+                            val index = rows.indexOfFirst {
+                                (it is DrawerRow.Header && it.letter == letter) ||
+                                    (it is DrawerRow.Folder && letter == DrawerRow.FOLDER_LETTER)
+                            }
                             if (index >= 0) scope.launch { listState.scrollToItem(index) }
                         },
                         onRelease = { scrubLetter = null },
@@ -206,6 +224,14 @@ fun LauncherApp(
                     ) {
                         Text(letter, style = ShadowedText, fontSize = 44.sp, fontWeight = FontWeight.Bold)
                     }
+                }
+
+                renaming?.let { app ->
+                    RenameDialog(
+                        app = app,
+                        onSave = { viewModel.rename(app, it); renaming = null },
+                        onDismiss = { renaming = null },
+                    )
                 }
 
                 AnimatedVisibility(visible = settingsOpen, enter = fadeIn(), exit = fadeOut()) {

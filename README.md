@@ -9,7 +9,8 @@ Minimalistický Android launcher: oblíbené aplikace na ploše, abecední sezna
 - Oblíbené aplikace s náhledem poslední notifikace a rychlou odpovědí
 - Návrhy často používaných aplikací
 - Seznam aplikací: tah nahoru, nebo tažení po abecedě u pravého okraje
-- Řazení podle používání, skryté aplikace
+- Řazení podle používání, skryté aplikace, přejmenování aplikací
+- Složka „Nepoužívané“ na konci seznamu: aplikace neotevřené přes 6 měsíců
 - Hledání: aplikace, kontakty, web
 - Dvojklepnutí na abecedu zamkne telefon
 - Připomínka přestávky po N minutách v aplikaci

@@ -20,6 +20,9 @@ data class Settings(
     val showBattery: Boolean = false,
     val allowRotation: Boolean = false,
     val haptics: Boolean = true,
+    val unusedFolder: Boolean = true,
+    /** Vlastní názvy aplikací: klíč aplikace -> název. */
+    val labels: Map<String, String> = emptyMap(),
     val grayscale: Boolean = false,
     /** Aplikace, ve kterých zůstanou barvy. null = ještě nenastaveno, použijí se výchozí. */
     val colorApps: Set<String>? = null,
@@ -55,6 +58,10 @@ class SettingsStore private constructor(context: Context) {
             showBattery = prefs.getBoolean("showBattery", d.showBattery),
             allowRotation = prefs.getBoolean("allowRotation", d.allowRotation),
             haptics = prefs.getBoolean("haptics", d.haptics),
+            unusedFolder = prefs.getBoolean("unusedFolder", d.unusedFolder),
+            labels = prefs.getStringSet("labels", emptySet())!!.mapNotNull { entry ->
+                entry.split(LABEL_SEPARATOR, limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] }
+            }.toMap(),
             grayscale = prefs.getBoolean("grayscale", d.grayscale),
             colorApps = prefs.getStringSet("colorApps", null)?.toSet(),
             hidden = prefs.getStringSet("hidden", d.hidden)!!.toSet(),
@@ -80,6 +87,8 @@ class SettingsStore private constructor(context: Context) {
             .putBoolean("showBattery", s.showBattery)
             .putBoolean("allowRotation", s.allowRotation)
             .putBoolean("haptics", s.haptics)
+            .putBoolean("unusedFolder", s.unusedFolder)
+            .putStringSet("labels", s.labels.map { (k, v) -> k + LABEL_SEPARATOR + v }.toSet())
             .putBoolean("grayscale", s.grayscale)
             .apply { if (s.colorApps != null) putStringSet("colorApps", s.colorApps) else remove("colorApps") }
             .putStringSet("hidden", s.hidden)
@@ -88,6 +97,7 @@ class SettingsStore private constructor(context: Context) {
     }
 
     companion object {
+        private const val LABEL_SEPARATOR = "\t"
         @Volatile private var instance: SettingsStore? = null
         fun get(context: Context): SettingsStore =
             instance ?: synchronized(this) {

@@ -20,6 +20,15 @@ object SystemUsage {
                 context.checkSelfPermission(Manifest.permission.PACKAGE_USAGE_STATS) == PackageManager.PERMISSION_GRANTED)
     }
 
+    /** Balíček -> kdy byl naposledy použit (za poslední rok a kousek). Prázdné bez přístupu. */
+    fun lastUsed(context: Context): Map<String, Long> {
+        if (!hasAccess(context)) return emptyMap()
+        val end = System.currentTimeMillis()
+        return context.getSystemService(UsageStatsManager::class.java)
+            .queryAndAggregateUsageStats(end - 400 * DAY, end)
+            .mapValues { it.value.lastTimeUsed }
+    }
+
     /** Balíček -> kolikrát byl otevřen za posledních [days] dní. */
     fun openCounts(context: Context, days: Int = 14): Map<String, Int> {
         if (!hasAccess(context)) return emptyMap()

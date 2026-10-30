@@ -35,6 +35,7 @@ data class LauncherStatus(
     val isDefault: Boolean = true,
     val hasNotificationAccess: Boolean = false,
     val lockServiceEnabled: Boolean = false,
+    val usageAccess: Boolean = false,
 )
 
 /** Akce, které potřebují Activity nebo systémové API. */
@@ -42,6 +43,7 @@ interface SystemActions {
     fun requestDefaultLauncher()
     fun openNotificationAccess()
     fun openAccessibilitySettings()
+    fun openUsageAccess()
     fun requestPermission(permission: String, onResult: (Boolean) -> Unit)
     fun pickWallpaper()
     fun openSystemSettings()
@@ -127,6 +129,7 @@ class MainActivity : ComponentActivity(), SystemActions {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        viewModel.refreshSystemUsage()
     }
 
     override fun onStop() {
@@ -161,6 +164,7 @@ class MainActivity : ComponentActivity(), SystemActions {
             hasNotificationAccess = NotificationManagerCompat.getEnabledListenerPackages(this)
                 .contains(packageName),
             lockServiceEnabled = enabledServices.split(':').any { it.equals(lockComponent, ignoreCase = true) },
+            usageAccess = SystemUsage.hasAccess(this),
         )
     }
 
@@ -185,6 +189,11 @@ class MainActivity : ComponentActivity(), SystemActions {
 
     override fun openAccessibilitySettings() {
         safeStart(Intent(SystemSettings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
+    override fun openUsageAccess() {
+        val own = Intent(SystemSettings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))
+        if (!safeStart(own)) safeStart(Intent(SystemSettings.ACTION_USAGE_ACCESS_SETTINGS))
     }
 
     override fun requestPermission(permission: String, onResult: (Boolean) -> Unit) {

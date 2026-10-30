@@ -47,6 +47,7 @@ import cz.tejkl.klid.SystemActions
 private val Background = Color(0xFF151515)
 private val Warning = Color(0xFFF28B82)
 private val BreakOptions = listOf(10, 15, 20, 30, 45, 60)
+private val HomeCountOptions = listOf(4, 5, 6, 7, 8)
 
 @Composable
 fun SettingsScreen(
@@ -112,6 +113,15 @@ private fun MainPage(
             )
         }
 
+        item {
+            Item(
+                stringResource(R.string.usage_access),
+                stringResource(R.string.usage_access_desc),
+                warn = !status.usageAccess,
+                onClick = actions::openUsageAccess,
+            )
+        }
+
         item { Section(stringResource(R.string.section_wellbeing)) }
         item {
             val postPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.POST_NOTIFICATIONS else null
@@ -129,6 +139,21 @@ private fun MainPage(
         }
 
         item { Section(stringResource(R.string.section_apps)) }
+        item {
+            Toggle(
+                stringResource(R.string.auto_home), stringResource(R.string.auto_home_desc), s.autoHome,
+                warn = s.autoHome && !status.usageAccess,
+            ) { on ->
+                set { it.copy(autoHome = on) }
+                if (on && !status.usageAccess) actions.openUsageAccess()
+            }
+        }
+        if (s.autoHome) item {
+            Item(stringResource(R.string.home_count), s.homeCount.toString()) {
+                val next = HomeCountOptions.getOrElse(HomeCountOptions.indexOf(s.homeCount) + 1) { HomeCountOptions.first() }
+                set { it.copy(homeCount = next) }
+            }
+        }
         item {
             Item(stringResource(R.string.hidden_apps), stringResource(R.string.hidden_apps_desc, hiddenCount)) { open(Page.Hidden) }
         }

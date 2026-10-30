@@ -52,19 +52,40 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    val favorites: StateFlow<List<AppEntry>> =
+    private val systemUsage = MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    /** Pořadí podle používání: systémová statistika, jinak vlastní záznam spuštění. */
+    private val ranked: StateFlow<List<AppEntry>> =
+        combine(_apps, settings, usageStore.scores, systemUsage) { apps, s, scores, system ->
+            apps.filter { it.key !in s.hidden }
+                .map { it to (system[it.packageName] ?: 0) * 1000f + (scores[it.key] ?: 0f) }
+                .filter { it.second > 0f }
+                .sortedByDescending { it.second }
+                .map { it.first }
+                .distinctBy { it.packageName }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Ručně připnuté aplikace. */
+    private val pinned: StateFlow<List<AppEntry>> =
         combine(_apps, favoritesStore.keys) { apps, keys ->
             val byKey = apps.associateBy { it.key }
             keys.mapNotNull { byKey[it] }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Často používané aplikace, které nejsou na ploše. */
+    /** Plocha: připnuté nahoře, zbytek doplní nejpoužívanější aplikace. */
+    val favorites: StateFlow<List<AppEntry>> =
+        combine(pinned, ranked, settings) { pinned, ranked, s ->
+            if (!s.autoHome) return@combine pinned
+            val pinnedKeys = pinned.map { it.key }.toSet()
+            pinned + ranked.filter { it.key !in pinnedKeys }.take((s.homeCount - pinned.size).coerceAtLeast(0))
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Další často používané aplikace, které nejsou na ploše. */
     val suggestions: StateFlow<List<AppEntry>> =
-        combine(_apps, favoritesStore.keys, settings, usageStore.scores) { apps, keys, s, scores ->
+        combine(ranked, favorites, settings) { ranked, home, s ->
             if (!s.suggestApps) return@combine emptyList()
-            apps.filter { it.key !in keys && it.key !in s.hidden && (scores[it.key] ?: 0f) >= 1f }
-                .sortedByDescending { scores[it.key] }
-                .take(SUGGESTION_COUNT)
+            val onHome = home.map { it.key }.toSet()
+            ranked.filter { it.key !in onHome }.take(SUGGESTION_COUNT)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val callback = object : LauncherApps.Callback() {
@@ -106,6 +127,12 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     }
             }.sortedWith { a, b -> collator.compare(a.label, b.label) }
+        }
+    }
+
+    fun refreshSystemUsage() {
+        viewModelScope.launch(Dispatchers.IO) {
+            systemUsage.value = SystemUsage.openCounts(getApplication())
         }
     }
 

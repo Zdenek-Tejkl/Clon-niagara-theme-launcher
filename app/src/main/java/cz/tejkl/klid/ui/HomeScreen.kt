@@ -141,7 +141,10 @@ fun HomeScreen(
                 style = ShadowedText,
                 color = Secondary,
                 fontSize = 16.sp,
-                modifier = Modifier.padding(8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(enabled = settings.autoHome, onClick = actions::openUsageAccess)
+                    .padding(8.dp),
             )
         }
         favorites.forEach { app ->

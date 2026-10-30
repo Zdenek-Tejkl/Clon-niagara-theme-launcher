@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 data class Settings(
     val usageBreaker: Boolean = false,
     val breakMinutes: Int = 20,
+    val autoHome: Boolean = true,
+    val homeCount: Int = 6,
     val suggestApps: Boolean = true,
     val sortByUsage: Boolean = true,
     val searchContacts: Boolean = false,
@@ -38,6 +40,8 @@ class SettingsStore private constructor(context: Context) {
         return Settings(
             usageBreaker = prefs.getBoolean("usageBreaker", d.usageBreaker),
             breakMinutes = prefs.getInt("breakMinutes", d.breakMinutes),
+            autoHome = prefs.getBoolean("autoHome", d.autoHome),
+            homeCount = prefs.getInt("homeCount", d.homeCount),
             suggestApps = prefs.getBoolean("suggestApps", d.suggestApps),
             sortByUsage = prefs.getBoolean("sortByUsage", d.sortByUsage),
             searchContacts = prefs.getBoolean("searchContacts", d.searchContacts),
@@ -59,6 +63,8 @@ class SettingsStore private constructor(context: Context) {
         prefs.edit()
             .putBoolean("usageBreaker", s.usageBreaker)
             .putInt("breakMinutes", s.breakMinutes)
+            .putBoolean("autoHome", s.autoHome)
+            .putInt("homeCount", s.homeCount)
             .putBoolean("suggestApps", s.suggestApps)
             .putBoolean("sortByUsage", s.sortByUsage)
             .putBoolean("searchContacts", s.searchContacts)

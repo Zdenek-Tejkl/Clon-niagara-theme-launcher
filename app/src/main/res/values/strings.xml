@@ -10,7 +10,7 @@
     <string name="unhide_app">Zobrazit aplikaci</string>
     <string name="app_info">Informace o aplikaci</string>
     <string name="uninstall">Odinstalovat</string>
-    <string name="empty_home">Podrž aplikaci v seznamu a přidej ji sem.\nSeznam otevřeš tahem nahoru.</string>
+    <string name="empty_home">Tady se objeví aplikace, které nejčastěji otevíráš.\nSeznam všech otevřeš tahem nahoru.</string>
     <string name="no_results">Nic nenalezeno</string>
     <string name="web_search">Hledat na webu: %1$s</string>
     <string name="reply">Odpovědět</string>
@@ -23,11 +23,16 @@
     <string name="usage_breaker_desc">Upozorní tě po %1$d minutách v aplikaci</string>
     <string name="break_length">Délka do připomínky</string>
     <string name="section_apps">Organizace aplikací</string>
+    <string name="auto_home">Nejpoužívanější na ploše</string>
+    <string name="auto_home_desc">Plocha sama ukáže aplikace, které otevíráš nejčastěji. Připnuté zůstanou nahoře.</string>
+    <string name="home_count">Počet aplikací na ploše</string>
+    <string name="usage_access">Přístup k využití aplikací</string>
+    <string name="usage_access_desc">Díky němu plocha zná tvé nejpoužívanější aplikace hned</string>
     <string name="hidden_apps">Skryté aplikace</string>
     <string name="hidden_apps_desc">%1$d skrytých. Najdeš je dál přes hledání.</string>
     <string name="hidden_apps_empty">Nic není skryté. Skrýt jde dlouhým podržením aplikace v seznamu.</string>
     <string name="suggest_apps">Navrhovat časté aplikace</string>
-    <string name="suggest_apps_desc">Ikony nejpoužívanějších aplikací nad oblíbenými</string>
+    <string name="suggest_apps_desc">Ikony dalších častých aplikací nad seznamem na ploše</string>
     <string name="sort_usage">Řadit podle používání</string>
     <string name="sort_usage_desc">U každého písmene nejdřív nejpoužívanější</string>
     <string name="section_search">Chytré hledání</string>

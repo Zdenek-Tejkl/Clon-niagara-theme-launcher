@@ -5,6 +5,7 @@ Minimalistický Android launcher: oblíbené aplikace na ploše, abecední sezna
 ## Funkce
 
 - Plocha: hodiny, datum, baterie, nejbližší události z kalendáře, přehrávač, jeden widget
+- Plocha sama ukáže 6 nejčastěji otevíraných aplikací (připnuté zůstanou nahoře)
 - Oblíbené aplikace s náhledem poslední notifikace a rychlou odpovědí
 - Návrhy často používaných aplikací
 - Seznam aplikací: tah nahoru, nebo tažení po abecedě u pravého okraje

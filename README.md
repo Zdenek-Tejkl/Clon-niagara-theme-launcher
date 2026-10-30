@@ -13,6 +13,17 @@ Minimalistický Android launcher: oblíbené aplikace na ploše, abecední sezna
 - Hledání: aplikace, kontakty, web
 - Dvojklepnutí na abecedu zamkne telefon
 - Připomínka přestávky po N minutách v aplikaci
+- Černobílý displej, barvy jen ve vybraných aplikacích (výchozí: Galerie, Fotky, Fotoaparát)
+
+## Černobílý displej: jednorázové povolení
+
+Android dovolí přepínat barvy jen s oprávněním uděleným z počítače:
+
+```
+adb shell pm grant cz.tejkl.klid android.permission.WRITE_SECURE_SETTINGS
+```
+
+Pak v Nastavení launcheru zapni Černobílý displej a službu přístupnosti „Klid: zamknutí a barvy“.
 
 ## Ovládání
 

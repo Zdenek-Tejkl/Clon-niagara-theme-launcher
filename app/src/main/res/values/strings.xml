@@ -52,6 +52,33 @@
     <string name="section_gestures">Gesta</string>
     <string name="quick_lock">Rychlé zamknutí</string>
     <string name="quick_lock_desc">Dvojklepnutím na abecedu zamkneš telefon</string>
+    <string name="section_grayscale">Černobílý displej</string>
+    <string name="grayscale">Černobílý displej</string>
+    <string name="grayscale_desc">Méně lákavý telefon. Barvy zůstanou jen ve vybraných aplikacích.</string>
+    <string name="color_apps">Barevné aplikace</string>
+    <string name="color_apps_desc">%1$d aplikací zůstane barevných</string>
+    <string name="color_apps_hint">Zaškrtnuté aplikace zůstanou barevné, vše ostatní bude černobílé.</string>
+    <string name="grayscale_setup">Povolit z počítače</string>
+    <string name="grayscale_setup_desc">Jednorázový krok, bez něj Android barvy přepínat nedovolí</string>
+    <string name="grayscale_service">Zapnout službu přístupnosti</string>
+    <string name="grayscale_service_desc">Aby launcher poznal, kterou aplikaci máš otevřenou</string>
+    <string name="setup_title">Povolení černobílého displeje</string>
+    <string name="setup_done">Hotovo, povolení je udělené.</string>
+    <string name="setup_steps">1. Na telefonu: Nastavení, O telefonu, 7× klepni na Číslo sestavení.
+
+2. Nastavení, Možnosti pro vývojáře: zapni Ladění USB.
+
+3. Na počítači stáhni Android Platform Tools a rozbal je:
+developer.android.com/tools/releases/platform-tools
+
+4. Připoj telefon kabelem a na telefonu potvrď Povolit ladění.
+
+5. Ve složce platform-tools otevři terminál a spusť příkaz níže.
+Na Windows napiš na začátek .\ (tedy .\adb shell …).
+
+6. Vrať se sem. Ladění USB pak můžeš zase vypnout.</string>
+    <string name="copy_command">Zkopírovat příkaz</string>
+    <string name="copied">Zkopírováno</string>
     <string name="section_advanced">Pokročilé</string>
     <string name="allow_rotation">Otáčení plochy</string>
     <string name="allow_rotation_desc">Když otočíš telefon</string>
@@ -66,8 +93,8 @@
     <string name="needs_setup">Vyžaduje povolení</string>
     <string name="back">Zpět</string>
 
-    <string name="lock_service_label">Klid: rychlé zamknutí</string>
-    <string name="lock_service_description">Umožní zamknout obrazovku dvojklepnutím na abecedu na ploše. Nečte obsah obrazovky.</string>
+    <string name="lock_service_label">Klid: zamknutí a barvy</string>
+    <string name="lock_service_description">Zamkne obrazovku dvojklepnutím na abecedu a přepíná černobílý displej podle otevřené aplikace. Zjišťuje jen název aplikace v popředí, obsah obrazovky nečte.</string>
     <string name="break_channel">Přestávky</string>
     <string name="break_title">Čas na pauzu</string>
     <string name="break_text">%1$s máš otevřené už %2$d minut.</string>

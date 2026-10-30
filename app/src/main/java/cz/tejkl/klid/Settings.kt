@@ -20,6 +20,9 @@ data class Settings(
     val showBattery: Boolean = false,
     val allowRotation: Boolean = false,
     val haptics: Boolean = true,
+    val grayscale: Boolean = false,
+    /** Aplikace, ve kterých zůstanou barvy. null = ještě nenastaveno, použijí se výchozí. */
+    val colorApps: Set<String>? = null,
     val hidden: Set<String> = emptySet(),
     val widgetId: Int = NO_WIDGET,
 ) {
@@ -52,6 +55,8 @@ class SettingsStore private constructor(context: Context) {
             showBattery = prefs.getBoolean("showBattery", d.showBattery),
             allowRotation = prefs.getBoolean("allowRotation", d.allowRotation),
             haptics = prefs.getBoolean("haptics", d.haptics),
+            grayscale = prefs.getBoolean("grayscale", d.grayscale),
+            colorApps = prefs.getStringSet("colorApps", null)?.toSet(),
             hidden = prefs.getStringSet("hidden", d.hidden)!!.toSet(),
             widgetId = prefs.getInt("widgetId", d.widgetId),
         )
@@ -75,6 +80,8 @@ class SettingsStore private constructor(context: Context) {
             .putBoolean("showBattery", s.showBattery)
             .putBoolean("allowRotation", s.allowRotation)
             .putBoolean("haptics", s.haptics)
+            .putBoolean("grayscale", s.grayscale)
+            .apply { if (s.colorApps != null) putStringSet("colorApps", s.colorApps) else remove("colorApps") }
             .putStringSet("hidden", s.hidden)
             .putInt("widgetId", s.widgetId)
             .apply()

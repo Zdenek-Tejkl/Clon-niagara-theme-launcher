@@ -21,23 +21,32 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.tejkl.klid.AppEntry
+import cz.tejkl.klid.Grayscale
+import cz.tejkl.klid.LockService
 import cz.tejkl.klid.LauncherStatus
 import cz.tejkl.klid.R
 import cz.tejkl.klid.Settings
@@ -54,6 +63,7 @@ fun SettingsScreen(
     settings: Settings,
     status: LauncherStatus,
     store: SettingsStore,
+    allApps: List<AppEntry>,
     hiddenApps: List<AppEntry>,
     onUnhide: (AppEntry) -> Unit,
     actions: SystemActions,
@@ -70,23 +80,27 @@ fun SettingsScreen(
             .navigationBarsPadding(),
     ) {
         when (page) {
-            Page.Main -> MainPage(settings, status, store, hiddenApps.size, actions) { page = it }
+            Page.Main -> MainPage(settings, status, store, allApps, hiddenApps.size, actions) { page = it }
             Page.Hidden -> HiddenPage(hiddenApps, onUnhide) { page = Page.Main }
+            Page.ColorApps -> ColorAppsPage(allApps, settings.colorApps.orEmpty(), store) { page = Page.Main }
+            Page.Setup -> SetupPage(status.canWriteSecure) { page = Page.Main }
         }
     }
 }
 
-private enum class Page { Main, Hidden }
+private enum class Page { Main, Hidden, ColorApps, Setup }
 
 @Composable
 private fun MainPage(
     s: Settings,
     status: LauncherStatus,
     store: SettingsStore,
+    allApps: List<AppEntry>,
     hiddenCount: Int,
     actions: SystemActions,
     open: (Page) -> Unit,
 ) {
+    val context = LocalContext.current
     fun set(transform: (Settings) -> Settings) = store.update(transform)
 
     /** Zapne volbu až po udělení oprávnění, vypnutí je vždy hned. */
@@ -221,6 +235,47 @@ private fun MainPage(
             }
         }
 
+        item { Section(stringResource(R.string.section_grayscale)) }
+        item {
+            Toggle(
+                stringResource(R.string.grayscale), stringResource(R.string.grayscale_desc), s.grayscale,
+                warn = s.grayscale && (!status.canWriteSecure || !status.lockServiceEnabled),
+            ) { on ->
+                set {
+                    val defaults = it.colorApps ?: Grayscale.defaultColorApps(context, allApps.map { a -> a.packageName }.toSet())
+                    it.copy(grayscale = on, colorApps = defaults)
+                }
+                // Plocha je teď v popředí, takže se rovnou přepne celá obrazovka.
+                Grayscale.invalidate()
+                Grayscale.set(context, on)
+                if (on && !status.canWriteSecure) open(Page.Setup)
+                else if (on && !status.lockServiceEnabled) actions.openAccessibilitySettings()
+            }
+        }
+        if (s.grayscale) {
+            item {
+                Item(
+                    stringResource(R.string.color_apps),
+                    stringResource(R.string.color_apps_desc, s.colorApps.orEmpty().size),
+                ) { open(Page.ColorApps) }
+            }
+            item {
+                Item(
+                    stringResource(R.string.grayscale_setup),
+                    stringResource(if (status.canWriteSecure) R.string.setup_done else R.string.grayscale_setup_desc),
+                    warn = !status.canWriteSecure,
+                ) { open(Page.Setup) }
+            }
+            if (!status.lockServiceEnabled) item {
+                Item(
+                    stringResource(R.string.grayscale_service),
+                    stringResource(R.string.grayscale_service_desc),
+                    warn = true,
+                    onClick = actions::openAccessibilitySettings,
+                )
+            }
+        }
+
         item { Section(stringResource(R.string.section_advanced)) }
         item {
             Toggle(stringResource(R.string.allow_rotation), stringResource(R.string.allow_rotation_desc), s.allowRotation) { on ->
@@ -239,18 +294,123 @@ private fun MainPage(
 }
 
 @Composable
-private fun HiddenPage(apps: List<AppEntry>, onUnhide: (AppEntry) -> Unit, onBack: () -> Unit) {
+private fun BackButton(onBack: () -> Unit) {
+    Text(
+        text = "‹  " + stringResource(R.string.back),
+        color = Accent,
+        fontSize = 16.sp,
+        modifier = Modifier
+            .clickable(onClick = onBack)
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+    )
+}
+
+@Composable
+private fun ColorAppsPage(apps: List<AppEntry>, colored: Set<String>, store: SettingsStore, onBack: () -> Unit) {
+    // Barevné nahoře, pořadí se při zaškrtávání nemění, aby položky neskákaly.
+    val ordered = remember(apps) { apps.sortedBy { if (it.packageName in colored) 0 else 1 }.distinctBy { it.packageName } }
     LazyColumn(Modifier.fillMaxSize()) {
+        item { BackButton(onBack) }
+        item { Title(stringResource(R.string.color_apps)) }
         item {
             Text(
-                text = "‹  " + stringResource(R.string.back),
-                color = Accent,
-                fontSize = 16.sp,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                stringResource(R.string.color_apps_hint),
+                color = Secondary,
+                fontSize = 15.sp,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
         }
+        items(ordered, key = { it.packageName }) { app ->
+            val checked = app.packageName in colored
+            fun toggle() {
+                store.update {
+                    val set = it.colorApps.orEmpty()
+                    it.copy(colorApps = if (checked) set - app.packageName else set + app.packageName)
+                }
+                LockService.refresh()
+            }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { toggle() }
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(app.icon, contentDescription = null, modifier = Modifier.size(36.dp))
+                Spacer(Modifier.width(16.dp))
+                Text(app.label, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                Checkbox(
+                    checked = checked,
+                    onCheckedChange = { toggle() },
+                    colors = CheckboxDefaults.colors(checkedColor = Accent),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetupPage(granted: Boolean, onBack: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    LazyColumn(Modifier.fillMaxSize()) {
+        item { BackButton(onBack) }
+        item { Title(stringResource(R.string.setup_title)) }
+        if (granted) item {
+            Text(
+                stringResource(R.string.setup_done),
+                color = Accent,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(24.dp),
+            )
+        }
+        item {
+            Text(
+                stringResource(R.string.setup_steps),
+                color = Color.White,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+        }
+        item {
+            Text(
+                Grayscale.ADB_COMMAND,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White.copy(alpha = 0.08f))
+                    .padding(16.dp),
+            )
+        }
+        item {
+            Text(
+                stringResource(if (copied) R.string.copied else R.string.copy_command),
+                color = Accent,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        clipboard.setText(AnnotatedString(Grayscale.ADB_COMMAND))
+                        copied = true
+                    }
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
+            )
+        }
+        item { Spacer(Modifier.height(32.dp)) }
+    }
+}
+
+@Composable
+private fun HiddenPage(apps: List<AppEntry>, onUnhide: (AppEntry) -> Unit, onBack: () -> Unit) {
+    LazyColumn(Modifier.fillMaxSize()) {
+        item { BackButton(onBack) }
         item { Title(stringResource(R.string.hidden_apps)) }
         if (apps.isEmpty()) item {
             Text(

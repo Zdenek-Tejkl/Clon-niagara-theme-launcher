@@ -36,6 +36,7 @@ data class LauncherStatus(
     val hasNotificationAccess: Boolean = false,
     val lockServiceEnabled: Boolean = false,
     val usageAccess: Boolean = false,
+    val canWriteSecure: Boolean = false,
 )
 
 /** Akce, které potřebují Activity nebo systémové API. */
@@ -165,7 +166,13 @@ class MainActivity : ComponentActivity(), SystemActions {
                 .contains(packageName),
             lockServiceEnabled = enabledServices.split(':').any { it.equals(lockComponent, ignoreCase = true) },
             usageAccess = SystemUsage.hasAccess(this),
+            canWriteSecure = Grayscale.canWrite(this),
         )
+        // Plocha je vždy černobílá; povolení mohlo právě přibýt (adb), tak stav zapíšeme znovu.
+        if (viewModel.settings.value.grayscale) {
+            Grayscale.invalidate()
+            Grayscale.set(this, true)
+        }
     }
 
     override fun requestDefaultLauncher() {

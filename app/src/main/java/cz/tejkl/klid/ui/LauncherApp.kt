@@ -213,6 +213,7 @@ fun LauncherApp(
                         settings = settings,
                         status = status,
                         store = viewModel.settingsStore,
+                        allApps = allApps,
                         hiddenApps = allApps.filter { it.key in settings.hidden },
                         onUnhide = viewModel::toggleHidden,
                         actions = actions,

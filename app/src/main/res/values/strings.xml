@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Klid</string>
+    <string name="search_hint">Hledat aplikace</string>
+    <string name="add_favorite">Přidat na plochu</string>
+    <string name="remove_favorite">Odebrat z plochy</string>
+    <string name="move_up">Posunout nahoru</string>
+    <string name="move_down">Posunout dolů</string>
+    <string name="app_info">Informace o aplikaci</string>
+    <string name="uninstall">Odinstalovat</string>
+    <string name="settings_title">Nastavení Klid</string>
+    <string name="set_default">Nastavit jako výchozí plochu</string>
+    <string name="notif_access">Zobrazovat notifikace</string>
+    <string name="wallpaper">Změnit tapetu</string>
+    <string name="system_settings">Nastavení systému</string>
+    <string name="empty_home">Podrž aplikaci v seznamu a přidej ji sem.\nSeznam otevřeš tahem nahoru.</string>
+    <string name="no_results">Nic nenalezeno</string>
+</resources>

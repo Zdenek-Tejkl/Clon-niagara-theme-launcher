@@ -1,6 +1,25 @@
 package cz.tejkl.klid.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -129,7 +148,7 @@ fun AppDrawer(
     Column(
         modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.72f))
+            .background(Color.Black.copy(alpha = 0.55f))
             .statusBarsPadding()
             .imePadding(),
     ) {
@@ -158,14 +177,20 @@ fun AppDrawer(
                 .navigationBarsPadding(),
         ) {
             items(rows, key = { it.key }, contentType = { it::class }) { row ->
+                val item = Modifier.animateItem(
+                    fadeInSpec = tween(180),
+                    placementSpec = spring(dampingRatio = 0.85f, stiffness = 500f, visibilityThreshold = IntOffset.VisibilityThreshold),
+                    fadeOutSpec = tween(120),
+                )
                 when (row) {
                     is DrawerRow.Header -> Text(
                         text = row.letter,
                         style = ShadowedText,
                         color = Accent,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 2.sp,
+                        modifier = item.padding(start = 10.dp, top = 22.dp, bottom = 6.dp),
                     )
 
                     is DrawerRow.App -> AppRow(
@@ -174,22 +199,26 @@ fun AppDrawer(
                         menu = menu,
                         onClick = { onLaunch(row.app) },
                         onNotificationClick = {},
-                        iconSize = 32.dp,
+                        iconSize = 36.dp,
                         labelSize = 18.sp,
                         showReorder = false,
                         showPreview = false,
+                        highlight = query,
+                        modifier = item,
                     )
 
                     is DrawerRow.Person -> ActionRow(
                         text = row.contact.name,
-                        badge = row.contact.name.take(1).uppercase(),
+                        modifier = item,
+                        badge = { Text(row.contact.name.take(1).uppercase(), style = ShadowedText, fontSize = 15.sp) },
                     ) { onContact(row.contact) }
 
-                    is DrawerRow.Folder -> FolderRow(row, onToggleFolder)
+                    is DrawerRow.Folder -> Box(item) { FolderRow(row, onToggleFolder) }
 
                     is DrawerRow.Web -> ActionRow(
                         text = stringResource(R.string.web_search, row.query),
-                        badge = "\u2197",
+                        modifier = item,
+                        badge = { SearchIcon(Modifier.size(16.dp), Color.White) },
                     ) { onWebSearch(row.query) }
                 }
             }
@@ -232,9 +261,9 @@ private fun FolderRow(folder: DrawerRow.Folder, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ActionRow(text: String, badge: String, onClick: () -> Unit) {
+private fun ActionRow(text: String, modifier: Modifier, badge: @Composable () -> Unit, onClick: () -> Unit) {
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
@@ -248,7 +277,7 @@ private fun ActionRow(text: String, badge: String, onClick: () -> Unit) {
                 .background(Color.White.copy(alpha = 0.16f)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(badge, style = ShadowedText, fontSize = 15.sp)
+            badge()
         }
         Spacer(Modifier.width(16.dp))
         Text(text, style = ShadowedText, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -257,11 +286,16 @@ private fun ActionRow(text: String, badge: String, onClick: () -> Unit) {
 
 @Composable
 private fun SearchField(query: String, onQueryChange: (String) -> Unit, onGo: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val focus by animateFloatAsState(if (focused) 1f else 0f, tween(220), label = "focus")
+    val shape = RoundedCornerShape(28.dp)
     BasicTextField(
         value = query,
         onValueChange = onQueryChange,
         singleLine = true,
-        textStyle = ShadowedText.copy(fontSize = 18.sp),
+        interactionSource = interaction,
+        textStyle = ShadowedText.copy(fontSize = 18.sp, fontWeight = FontWeight.Medium),
         cursorBrush = SolidColor(Accent),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
         keyboardActions = KeyboardActions(onGo = { onGo() }),
@@ -269,17 +303,56 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onGo: ()
             .fillMaxWidth()
             .padding(start = 16.dp, end = 52.dp, top = 12.dp, bottom = 8.dp),
         decorationBox = { inner ->
-            Box(
+            Row(
                 Modifier
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White.copy(alpha = 0.12f))
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .clip(shape)
+                    .background(Color.White.copy(alpha = 0.10f + 0.05f * focus))
+                    .border(1.dp, lerp(GlassEdge, Accent.copy(alpha = 0.6f), focus), shape)
+                    .padding(start = 18.dp, end = 8.dp)
+                    .height(52.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (query.isEmpty()) {
-                    Text(stringResource(R.string.search_hint), style = ShadowedText, color = Secondary, fontSize = 18.sp)
+                SearchIcon(Modifier.size(18.dp), lerp(Secondary, Accent, focus))
+                Spacer(Modifier.width(12.dp))
+                Box(Modifier.weight(1f)) {
+                    if (query.isEmpty()) {
+                        Text(stringResource(R.string.search_hint), style = ShadowedText, color = Secondary, fontSize = 17.sp, maxLines = 1)
+                    }
+                    inner()
                 }
-                inner()
+                AnimatedVisibility(visible = query.isNotEmpty(), enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .clickable { onQueryChange("") },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CloseIcon(Modifier.size(12.dp), Secondary)
+                    }
+                }
             }
         },
     )
+}
+
+/** Lupa kreslená čarou, ať sedí k tenkému písmu. */
+@Composable
+fun SearchIcon(modifier: Modifier, color: Color) {
+    Canvas(modifier) {
+        val stroke = size.minDimension / 9f
+        val r = size.minDimension * 0.34f
+        val c = Offset(r + stroke, r + stroke)
+        drawCircle(color, r, c, style = Stroke(stroke))
+        drawLine(color, Offset(c.x + r * 0.72f, c.y + r * 0.72f), Offset(size.width - stroke / 2, size.height - stroke / 2), stroke, StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun CloseIcon(modifier: Modifier, color: Color) {
+    Canvas(modifier) {
+        val stroke = size.minDimension / 6f
+        drawLine(color, Offset.Zero, Offset(size.width, size.height), stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width, 0f), Offset(0f, size.height), stroke, StrokeCap.Round)
+    }
 }

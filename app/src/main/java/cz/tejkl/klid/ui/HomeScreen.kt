@@ -173,9 +173,10 @@ private fun Clock(now: Long, showBattery: Boolean, actions: SystemActions) {
     Column(Modifier.padding(horizontal = 8.dp)) {
         Text(
             text = DateFormat.getTimeInstance(DateFormat.SHORT).format(date),
-            style = ShadowedText,
-            fontSize = 64.sp,
-            fontWeight = FontWeight.Light,
+            style = ShadowedText.copy(fontFeatureSettings = "tnum"),
+            fontSize = 76.sp,
+            fontWeight = FontWeight.ExtraLight,
+            letterSpacing = (-2).sp,
             modifier = Modifier.clickable(noRipple, indication = null, onClick = actions::openClock),
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -184,6 +185,7 @@ private fun Clock(now: Long, showBattery: Boolean, actions: SystemActions) {
                 style = ShadowedText,
                 color = Secondary,
                 fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.clickable(noRipple, indication = null, onClick = actions::openCalendar),
             )
             if (battery != null && battery >= 0) {

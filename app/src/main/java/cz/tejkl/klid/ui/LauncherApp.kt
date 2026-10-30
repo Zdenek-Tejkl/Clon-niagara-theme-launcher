@@ -1,6 +1,22 @@
 package cz.tejkl.klid.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -56,7 +72,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.Normalizer
 
 @Composable
 fun LauncherApp(
@@ -150,9 +165,54 @@ fun LauncherApp(
     val systemHaptics = LocalHapticFeedback.current
     val haptics = if (settings.haptics) systemHaptics else NoHaptics
 
-    MaterialTheme(colorScheme = darkColorScheme(primary = Accent)) {
+    // Tažení po abecedě: poloha prstu a případné zamčení v kartě aplikací (prst posunutý doleva).
+    var scrub by remember { mutableStateOf<Scrub?>(null) }
+    var lockY by remember { mutableStateOf<Float?>(null) }
+    var rootHeight by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    val insets = WindowInsets.systemBars
+    val popupLetter = scrubLetter
+    val popupApps = remember(popupLetter, drawerApps, unusedApps) {
+        when (popupLetter) {
+            null -> emptyList()
+            DrawerRow.FOLDER_LETTER -> unusedApps
+            else -> drawerApps.filter { it.section == popupLetter }
+        }.take(PopupGeometry.MAX_APPS)
+    }
+    val popupHeight = PopupGeometry.height(density, popupApps.size)
+    val popupTop = run {
+        val anchor = lockY ?: scrub?.y ?: 0f
+        val minTop = insets.getTop(density) + with(density) { 16.dp.toPx() }
+        val maxTop = (rootHeight - insets.getBottom(density) - popupHeight - with(density) { 16.dp.toPx() })
+            .coerceAtLeast(minTop)
+        (anchor - popupHeight / 2).coerceIn(minTop, maxTop)
+    }
+    val selectedApp = if (lockY == null) -1
+    else PopupGeometry.indexAt(density, popupTop, scrub?.y ?: 0f, popupApps.size)
+    val showPopup = scrub != null && !drawerOpen && popupApps.isNotEmpty()
+
+    LaunchedEffect(selectedApp) {
+        if (selectedApp >= 0) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+
+    // Plocha za seznamem a za kartou se rozostří a lehce oddálí, ať je jasné, co je v popředí.
+    val depth by animateFloatAsState(
+        when {
+            drawerOpen -> 1f
+            showPopup -> 0.4f
+            else -> 0f
+        },
+        spring(dampingRatio = 0.9f, stiffness = 320f),
+        label = "depth",
+    )
+
+    MaterialTheme(colorScheme = darkColorScheme(primary = Accent), typography = AppTypography) {
         CompositionLocalProvider(LocalHapticFeedback provides haptics) {
-            Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .onSizeChanged { rootHeight = it.height.toFloat() },
+            ) {
                 HomeScreen(
                     favorites = favorites,
                     suggestions = suggestions,
@@ -167,12 +227,21 @@ fun LauncherApp(
                     onReply = viewModel::reply,
                     onSwipeUp = { drawerOpen = true },
                     onLongPress = { settingsOpen = true },
+                    modifier = Modifier
+                        .graphicsLayer {
+                            scaleX = 1f - 0.05f * depth
+                            scaleY = scaleX
+                            alpha = 1f - 0.35f * depth
+                        }
+                        .blur(28.dp * depth),
                 )
 
                 AnimatedVisibility(
                     visible = drawerOpen,
-                    enter = fadeIn() + slideInVertically { it / 6 },
-                    exit = fadeOut() + slideOutVertically { it / 6 },
+                    enter = fadeIn(tween(200)) +
+                        slideInVertically(spring(dampingRatio = 0.82f, stiffness = 420f)) { it / 10 } +
+                        scaleIn(spring(dampingRatio = 0.82f, stiffness = 420f), initialScale = 0.97f),
+                    exit = fadeOut(tween(160)) + slideOutVertically(tween(200)) { it / 12 },
                 ) {
                     AppDrawer(
                         rows = rows,
@@ -192,19 +261,44 @@ fun LauncherApp(
                     )
                 }
 
+                fun jumpTo(letter: String) {
+                    val index = rows.indexOfFirst {
+                        (it is DrawerRow.Header && it.letter == letter) ||
+                            (it is DrawerRow.Folder && letter == DrawerRow.FOLDER_LETTER)
+                    }
+                    if (index >= 0) scope.launch { listState.animateScrollToItem(index) }
+                }
+
                 if (query.isBlank()) {
                     AlphabetScrubber(
                         letters = letters,
+                        lockLetter = lockY != null,
                         onLetter = { letter ->
                             scrubLetter = letter
-                            drawerOpen = true
-                            val index = rows.indexOfFirst {
-                                (it is DrawerRow.Header && it.letter == letter) ||
-                                    (it is DrawerRow.Folder && letter == DrawerRow.FOLDER_LETTER)
-                            }
-                            if (index >= 0) scope.launch { listState.scrollToItem(index) }
+                            if (drawerOpen) jumpTo(letter)
                         },
-                        onRelease = { scrubLetter = null },
+                        onScrub = { s ->
+                            scrub = s
+                            if (!drawerOpen) {
+                                val enter = with(density) { -56.dp.toPx() }
+                                val exit = with(density) { -24.dp.toPx() }
+                                if (lockY == null && s.dx < enter) lockY = s.y
+                                else if (lockY != null && s.dx > exit) lockY = null
+                            }
+                        },
+                        onRelease = { s, tapped ->
+                            when {
+                                tapped && s != null -> {
+                                    drawerOpen = true
+                                    folderOpen = s.letter == DrawerRow.FOLDER_LETTER
+                                    jumpTo(s.letter)
+                                }
+                                selectedApp >= 0 -> viewModel.launch(popupApps[selectedApp])
+                            }
+                            scrub = null
+                            lockY = null
+                            scrubLetter = null
+                        },
                         onDoubleTap = if (settings.quickLock) {
                             { closeDrawer(); actions.lockScreen() }
                         } else null,
@@ -216,17 +310,28 @@ fun LauncherApp(
                     )
                 }
 
-                scrubLetter?.let { letter ->
-                    Box(
+                AnimatedVisibility(
+                    visible = showPopup,
+                    enter = fadeIn(tween(120)) +
+                        scaleIn(spring(dampingRatio = 0.72f, stiffness = 520f), 0.88f, TransformOrigin(1f, 0.5f)),
+                    exit = fadeOut(tween(140)) + scaleOut(tween(160), 0.94f, TransformOrigin(1f, 0.5f)),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset { IntOffset(-64.dp.roundToPx(), popupTop.roundToInt()) },
+                ) {
+                    LetterPopup(popupLetter.orEmpty(), popupApps, selectedApp)
+                }
+
+                // V otevřeném seznamu stačí nenápadné písmeno u prstu, seznam sám skáče.
+                if (drawerOpen && scrub != null && popupLetter != null) {
+                    LetterBubble(
+                        popupLetter,
                         Modifier
-                            .align(Alignment.Center)
-                            .size(96.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(letter, style = ShadowedText, fontSize = 44.sp, fontWeight = FontWeight.Bold)
-                    }
+                            .align(Alignment.TopEnd)
+                            .offset {
+                                IntOffset(-88.dp.roundToPx(), ((scrub?.y ?: 0f) - 32.dp.toPx()).roundToInt())
+                            },
+                    )
                 }
 
                 renaming?.let { app ->
@@ -257,9 +362,3 @@ fun LauncherApp(
 private object NoHaptics : HapticFeedback {
     override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
 }
-
-/** Malá písmena bez diakritiky, aby "cas" našlo "Čas". */
-private fun String.fold(): String =
-    Normalizer.normalize(lowercase(), Normalizer.Form.NFD).replace(DIACRITICS, "")
-
-private val DIACRITICS = Regex("\\p{Mn}+")

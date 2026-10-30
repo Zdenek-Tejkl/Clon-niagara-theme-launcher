@@ -21,6 +21,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -74,17 +79,33 @@ fun AppRow(
     showPreview: Boolean,
     modifier: Modifier = Modifier,
     onReply: ((NotificationItem, String) -> Unit)? = null,
+    highlight: String? = null,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var replyText by remember { mutableStateOf<String?>(null) }
     val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    // Místo ripple jemné pružné "zmáčknutí" a podsvícení.
+    val press by animateFloatAsState(
+        if (pressed || menuOpen) 1f else 0f,
+        spring(dampingRatio = 0.6f, stiffness = 700f),
+        label = "press",
+    )
 
     Box(modifier) {
         Column(
             Modifier
                 .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = 1f - 0.035f * press
+                    scaleY = scaleX
+                }
                 .clip(RowShape)
+                .background(Color.White.copy(alpha = 0.08f * press))
                 .combinedClickable(
+                    interactionSource = interaction,
+                    indication = null,
                     onClick = onClick,
                     onLongClick = {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -97,9 +118,10 @@ fun AppRow(
                 Image(app.icon, contentDescription = null, modifier = Modifier.size(iconSize))
                 Spacer(Modifier.width(16.dp))
                 Text(
-                    text = app.label,
+                    text = highlightMatch(app.label, highlight, Accent),
                     style = ShadowedText,
                     fontSize = labelSize,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
@@ -236,4 +258,4 @@ private fun ReplyField(text: String, onTextChange: (String) -> Unit, onSend: () 
     )
 }
 
-private val RowShape = RoundedCornerShape(12.dp)
+private val RowShape = RoundedCornerShape(16.dp)

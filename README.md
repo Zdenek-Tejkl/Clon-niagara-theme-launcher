@@ -9,6 +9,8 @@ Minimalistický Android launcher: oblíbené aplikace na ploše, abecední sezna
 - Oblíbené aplikace s náhledem poslední notifikace a rychlou odpovědí
 - Návrhy často používaných aplikací
 - Seznam aplikací: tah nahoru, nebo tažení po abecedě u pravého okraje
+- Při tažení po abecedě vyjede u prstu karta s aplikacemi; posuň prst doleva na aplikaci a pusť
+- Jednotný tvar ikon, písmo Manrope (licence OFL, viz LICENSE-Manrope.txt)
 - Řazení podle používání, skryté aplikace, přejmenování aplikací
 - Složka „Nepoužívané“ na konci seznamu: aplikace neotevřené přes 6 měsíců
 - Hledání: aplikace, kontakty, web
@@ -43,3 +45,5 @@ Pak v Nastavení launcheru zapni Černobílý displej a službu přístupnosti �
 APK najdeš v `app/build/outputs/apk/release/`. GitHub Actions ho sestaví při každém pushi (záložka Actions, artefakt `klid-apk`).
 
 Požadavky: Android 10+, JDK 17+.
+
+Náhledy obrazovek bez telefonu: `./gradlew testDebugUnitTest`, obrázky jsou v `app/build/outputs/roborazzi/`.

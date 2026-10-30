@@ -133,7 +133,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun reload() {
         viewModelScope.launch(Dispatchers.Default) {
             val ownPackage = getApplication<Application>().packageName
-            val iconSize = (48 * getApplication<Application>().resources.displayMetrics.density).toInt()
+            val density = getApplication<Application>().resources.displayMetrics.density
+            val iconSize = (56 * density).toInt()
+            val packageManager = getApplication<Application>().packageManager
+            val me = android.os.Process.myUserHandle()
             systemApps.value = userManager.userProfiles.flatMap { user ->
                 val serial = userManager.getSerialNumberForUser(user)
                 launcherApps.getActivityList(null, user)
@@ -147,7 +150,12 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                             packageName = info.applicationInfo.packageName,
                             component = info.componentName,
                             user = user,
-                            icon = info.getBadgedIcon(0).toBitmap(iconSize, iconSize).asImageBitmap(),
+                            icon = IconRenderer.render(info.getIcon(0), iconSize).let { bmp ->
+                                // Aplikace z pracovního profilu dostanou systémový odznak.
+                                if (user == me) bmp
+                                else packageManager.getUserBadgedIcon(android.graphics.drawable.BitmapDrawable(getApplication<Application>().resources, bmp), user)
+                                    .toBitmap(iconSize, iconSize)
+                            }.asImageBitmap(),
                             section = sectionOf(label),
                             installedAt = info.firstInstallTime,
                         )

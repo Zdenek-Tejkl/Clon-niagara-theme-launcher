@@ -171,7 +171,7 @@ class MainActivity : ComponentActivity(), SystemActions {
         // Plocha je vždy černobílá; povolení mohlo právě přibýt (adb), tak stav zapíšeme znovu.
         if (viewModel.settings.value.grayscale) {
             Grayscale.invalidate()
-            Grayscale.set(this, true)
+            Grayscale.set(this, !LockService.colorOverrideActive)
         }
     }
 

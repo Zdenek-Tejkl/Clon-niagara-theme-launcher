@@ -44,6 +44,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.tejkl.klid.AppEntry
 import cz.tejkl.klid.LauncherStatus
 import cz.tejkl.klid.LauncherViewModel
+import cz.tejkl.klid.LearnState
+import cz.tejkl.klid.LockService
 import cz.tejkl.klid.MediaHub
 import cz.tejkl.klid.NotificationHub
 import cz.tejkl.klid.SystemActions
@@ -97,7 +99,8 @@ fun LauncherApp(
     LaunchedEffect(resetSignal) {
         resetSignal.collect {
             closeDrawer()
-            settingsOpen = false
+            // Při učení tlačítka může stisk otevřít jinou aplikaci; nastavení pak musí po návratu ukázat proč.
+            if (LockService.learn.value == LearnState.Idle) settingsOpen = false
         }
     }
     BackHandler(enabled = drawerOpen && !settingsOpen) { closeDrawer() }

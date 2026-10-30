@@ -5,7 +5,9 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,6 +30,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,7 +47,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.tejkl.klid.AppEntry
+import cz.tejkl.klid.ButtonActions
+import cz.tejkl.klid.LearnState
 import cz.tejkl.klid.Grayscale
 import cz.tejkl.klid.LockService
 import cz.tejkl.klid.LauncherStatus
@@ -70,6 +76,7 @@ fun SettingsScreen(
     onClose: () -> Unit,
 ) {
     var page by rememberSaveable { mutableStateOf(Page.Main) }
+    var pickFor by rememberSaveable { mutableIntStateOf(0) }
     BackHandler { if (page == Page.Main) onClose() else page = Page.Main }
 
     Box(
@@ -80,7 +87,18 @@ fun SettingsScreen(
             .navigationBarsPadding(),
     ) {
         when (page) {
-            Page.Main -> MainPage(settings, status, store, allApps, hiddenApps.size, actions) { page = it }
+            Page.Main -> MainPage(settings, status, store, allApps, hiddenApps.size, actions, onPickApp = {
+                pickFor = it
+                page = Page.PickApp
+            }) { page = it }
+            Page.PickApp -> PickAppPage(allApps) { app ->
+                if (app != null) store.update {
+                    it.copy(buttonActions = it.buttonActions.toMutableList().also { list ->
+                        list[pickFor] = ButtonActions.APP_PREFIX + app.packageName
+                    })
+                }
+                page = Page.Main
+            }
             Page.Hidden -> HiddenPage(hiddenApps, onUnhide) { page = Page.Main }
             Page.ColorApps -> ColorAppsPage(allApps, settings.colorApps.orEmpty(), store) { page = Page.Main }
             Page.Setup -> SetupPage(status.canWriteSecure) { page = Page.Main }
@@ -88,7 +106,7 @@ fun SettingsScreen(
     }
 }
 
-private enum class Page { Main, Hidden, ColorApps, Setup }
+private enum class Page { Main, Hidden, ColorApps, Setup, PickApp }
 
 @Composable
 private fun MainPage(
@@ -98,9 +116,11 @@ private fun MainPage(
     allApps: List<AppEntry>,
     hiddenCount: Int,
     actions: SystemActions,
+    onPickApp: (Int) -> Unit,
     open: (Page) -> Unit,
 ) {
     val context = LocalContext.current
+    val learn by LockService.learn.collectAsStateWithLifecycle()
     fun set(transform: (Settings) -> Settings) = store.update(transform)
 
     /** Zapne volbu až po udělení oprávnění, vypnutí je vždy hned. */
@@ -285,6 +305,46 @@ private fun MainPage(
             }
         }
 
+        item { Section(stringResource(R.string.section_button)) }
+        item {
+            val subtitle = when (val l = learn) {
+                LearnState.Waiting -> stringResource(R.string.button_waiting)
+                is LearnState.Learned -> stringResource(R.string.button_learned, l.keyCode)
+                is LearnState.OpenedApp -> stringResource(
+                    R.string.button_opened_app,
+                    allApps.firstOrNull { it.packageName == l.packageName }?.label ?: l.packageName,
+                )
+                LearnState.Idle -> if (!status.lockServiceEnabled) stringResource(R.string.button_needs_service)
+                else if (s.buttonKey == 0) stringResource(R.string.button_learn_none)
+                else stringResource(R.string.button_learn_set, s.buttonKey)
+            }
+            Item(stringResource(R.string.button_learn), subtitle, warn = !status.lockServiceEnabled) {
+                if (status.lockServiceEnabled) LockService.startLearning() else actions.openAccessibilitySettings()
+            }
+        }
+        if (s.buttonKey != 0) {
+            item {
+                Text(
+                    stringResource(R.string.action_hint),
+                    color = Secondary,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                )
+            }
+            s.buttonActions.forEachIndexed { index, action ->
+                item {
+                    val title = stringResource(listOf(R.string.press_1, R.string.press_2, R.string.press_3)[index])
+                    PressRow(title, actionLabel(action, allApps), onLongClick = { onPickApp(index) }) {
+                        val next = ButtonActions.CYCLE.getOrElse(ButtonActions.CYCLE.indexOf(action) + 1) { ButtonActions.NONE }
+                        set { it.copy(buttonActions = it.buttonActions.toMutableList().also { l -> l[index] = next }) }
+                    }
+                }
+            }
+            item {
+                Item(stringResource(R.string.button_clear)) { set { it.copy(buttonKey = 0) } }
+            }
+        }
+
         item { Section(stringResource(R.string.section_advanced)) }
         item {
             Toggle(stringResource(R.string.allow_rotation), stringResource(R.string.allow_rotation_desc), s.allowRotation) { on ->
@@ -299,6 +359,56 @@ private fun MainPage(
         item { Item(stringResource(R.string.wallpaper), onClick = actions::pickWallpaper) }
         item { Item(stringResource(R.string.system_settings), onClick = actions::openSystemSettings) }
         item { Spacer(Modifier.height(32.dp)) }
+    }
+}
+
+@Composable
+private fun actionLabel(action: String, apps: List<AppEntry>): String = when {
+    action.startsWith(ButtonActions.APP_PREFIX) -> {
+        val pkg = action.removePrefix(ButtonActions.APP_PREFIX)
+        stringResource(R.string.action_app, apps.firstOrNull { it.packageName == pkg }?.label ?: pkg)
+    }
+    action == ButtonActions.COLOR -> stringResource(R.string.action_color)
+    action == ButtonActions.WALLET -> stringResource(R.string.action_wallet)
+    action == ButtonActions.TORCH -> stringResource(R.string.action_torch)
+    action == ButtonActions.LOCK -> stringResource(R.string.action_lock)
+    action == ButtonActions.CAMERA -> stringResource(R.string.action_camera)
+    else -> stringResource(R.string.action_none)
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PressRow(title: String, value: String, onLongClick: () -> Unit, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.width(96.dp))
+        Text(value, color = Accent, fontSize = 16.sp, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun PickAppPage(apps: List<AppEntry>, onPicked: (AppEntry?) -> Unit) {
+    LazyColumn(Modifier.fillMaxSize()) {
+        item { BackButton { onPicked(null) } }
+        item { Title(stringResource(R.string.action_pick_app)) }
+        items(apps.distinctBy { it.packageName }, key = { it.key }) { app ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onPicked(app) }
+                    .padding(horizontal = 24.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(app.icon, contentDescription = null, modifier = Modifier.size(36.dp))
+                Spacer(Modifier.width(16.dp))
+                Text(app.label, color = Color.White, fontSize = 18.sp)
+            }
+        }
     }
 }
 

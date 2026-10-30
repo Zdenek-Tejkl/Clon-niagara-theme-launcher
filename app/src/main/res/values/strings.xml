@@ -88,6 +88,30 @@ Na Windows napiš na začátek .\ (tedy .\adb shell …).
 6. Vrať se sem. Ladění USB pak můžeš zase vypnout.</string>
     <string name="copy_command">Zkopírovat příkaz</string>
     <string name="copied">Zkopírováno</string>
+    <string name="section_button">Tlačítko</string>
+    <string name="button_learn">Naučit tlačítko</string>
+    <string name="button_learn_none">Zatím žádné. Klepni a zmáčkni tlačítko na telefonu.</string>
+    <string name="button_learn_set">Nastavené (kód %1$d). Klepnutím změníš.</string>
+    <string name="button_waiting">Teď zmáčkni tlačítko…</string>
+    <string name="button_learned">Hotovo, tlačítko zachyceno (kód %1$d).</string>
+    <string name="button_opened_app">Tlačítko se k launcheru nedostalo, místo toho otevřelo %1$s. Tenhle telefon ho aplikacím nepouští.</string>
+    <string name="button_needs_service">Nejdřív zapni službu přístupnosti „Klid: zamknutí a barvy“. Pokud už běží, vypni ji a znovu zapni, ať se načte nové oprávnění.</string>
+    <string name="button_clear">Zrušit vlastní funkci tlačítka</string>
+    <string name="press_1">1× stisk</string>
+    <string name="press_2">2× stisk</string>
+    <string name="press_3">3× stisk</string>
+    <string name="action_none">Nic</string>
+    <string name="action_color">Barvy všude zapnout / vypnout</string>
+    <string name="action_wallet">Otevřít Wallet</string>
+    <string name="action_torch">Svítilna</string>
+    <string name="action_lock">Zamknout telefon</string>
+    <string name="action_camera">Fotoaparát</string>
+    <string name="action_app">Otevřít %1$s</string>
+    <string name="action_pick_app">Vybrat aplikaci…</string>
+    <string name="action_hint">Klepnutím přepneš funkci, podržením vybereš aplikaci.</string>
+    <string name="colors_on">Barvy zapnuté</string>
+    <string name="colors_off">Černobílý režim</string>
+    <string name="no_wallet">Wallet není nainstalovaný</string>
     <string name="section_advanced">Pokročilé</string>
     <string name="allow_rotation">Otáčení plochy</string>
     <string name="allow_rotation_desc">Když otočíš telefon</string>
@@ -103,7 +127,7 @@ Na Windows napiš na začátek .\ (tedy .\adb shell …).
     <string name="back">Zpět</string>
 
     <string name="lock_service_label">Klid: zamknutí a barvy</string>
-    <string name="lock_service_description">Zamkne obrazovku dvojklepnutím na abecedu a přepíná černobílý displej podle otevřené aplikace. Zjišťuje jen název aplikace v popředí, obsah obrazovky nečte.</string>
+    <string name="lock_service_description">Zamkne obrazovku dvojklepnutím na abecedu, přepíná černobílý displej podle otevřené aplikace a dává vlastní funkce hardwarovému tlačítku. Zjišťuje jen název aplikace v popředí a stisky tlačítek, obsah obrazovky ani psaný text nečte.</string>
     <string name="break_channel">Přestávky</string>
     <string name="break_title">Čas na pauzu</string>
     <string name="break_text">%1$s máš otevřené už %2$d minut.</string>

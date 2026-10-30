@@ -15,6 +15,7 @@ Minimalistický Android launcher: oblíbené aplikace na ploše, abecední sezna
 - Dvojklepnutí na abecedu zamkne telefon
 - Připomínka přestávky po N minutách v aplikaci
 - Černobílý displej, barvy jen ve vybraných aplikacích (výchozí: Galerie, Fotky, Fotoaparát)
+- Vlastní funkce hardwarového tlačítka (např. Bixby): 1×, 2× a 3× stisk
 
 ## Černobílý displej: jednorázové povolení
 

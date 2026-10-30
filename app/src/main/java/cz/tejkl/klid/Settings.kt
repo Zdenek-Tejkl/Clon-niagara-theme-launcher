@@ -24,6 +24,10 @@ data class Settings(
     /** Vlastní názvy aplikací: klíč aplikace -> název. */
     val labels: Map<String, String> = emptyMap(),
     val grayscale: Boolean = false,
+    /** Kód hardwarového tlačítka s vlastní funkcí, 0 = žádné. */
+    val buttonKey: Int = 0,
+    /** Akce pro 1×, 2× a 3× stisk, viz [ButtonActions]. */
+    val buttonActions: List<String> = listOf(ButtonActions.COLOR, ButtonActions.WALLET, ButtonActions.TORCH),
     /** Aplikace, ve kterých zůstanou barvy. null = ještě nenastaveno, použijí se výchozí. */
     val colorApps: Set<String>? = null,
     val hidden: Set<String> = emptySet(),
@@ -63,6 +67,8 @@ class SettingsStore private constructor(context: Context) {
                 entry.split(LABEL_SEPARATOR, limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] }
             }.toMap(),
             grayscale = prefs.getBoolean("grayscale", d.grayscale),
+            buttonKey = prefs.getInt("buttonKey", d.buttonKey),
+            buttonActions = d.buttonActions.indices.map { i -> prefs.getString("button$i", null) ?: d.buttonActions[i] },
             colorApps = prefs.getStringSet("colorApps", null)?.toSet(),
             hidden = prefs.getStringSet("hidden", d.hidden)!!.toSet(),
             widgetId = prefs.getInt("widgetId", d.widgetId),
@@ -90,6 +96,8 @@ class SettingsStore private constructor(context: Context) {
             .putBoolean("unusedFolder", s.unusedFolder)
             .putStringSet("labels", s.labels.map { (k, v) -> k + LABEL_SEPARATOR + v }.toSet())
             .putBoolean("grayscale", s.grayscale)
+            .putInt("buttonKey", s.buttonKey)
+            .apply { s.buttonActions.forEachIndexed { i, action -> putString("button$i", action) } }
             .apply { if (s.colorApps != null) putStringSet("colorApps", s.colorApps) else remove("colorApps") }
             .putStringSet("hidden", s.hidden)
             .putInt("widgetId", s.widgetId)

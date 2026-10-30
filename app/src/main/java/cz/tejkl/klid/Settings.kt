@@ -27,7 +27,7 @@ data class Settings(
     /** Kód hardwarového tlačítka s vlastní funkcí, 0 = žádné. */
     val buttonKey: Int = 0,
     /** Akce pro 1×, 2× a 3× stisk, viz [ButtonActions]. */
-    val buttonActions: List<String> = listOf(ButtonActions.COLOR, ButtonActions.WALLET, ButtonActions.TORCH),
+    val buttonActions: List<String> = listOf(ButtonActions.WALLET, ButtonActions.TORCH, ButtonActions.COLOR),
     /** Aplikace, ve kterých zůstanou barvy. null = ještě nenastaveno, použijí se výchozí. */
     val colorApps: Set<String>? = null,
     val hidden: Set<String> = emptySet(),
@@ -68,7 +68,9 @@ class SettingsStore private constructor(context: Context) {
             }.toMap(),
             grayscale = prefs.getBoolean("grayscale", d.grayscale),
             buttonKey = prefs.getInt("buttonKey", d.buttonKey),
-            buttonActions = d.buttonActions.indices.map { i -> prefs.getString("button$i", null) ?: d.buttonActions[i] },
+            buttonActions = d.buttonActions.indices.map { i -> prefs.getString("button$i", null) ?: d.buttonActions[i] }
+                // Verze 0.5.0 měla výchozí pořadí obráceně; neupravené pořadí převedeme na nové.
+                .let { if (it == OLD_BUTTON_DEFAULTS) d.buttonActions else it },
             colorApps = prefs.getStringSet("colorApps", null)?.toSet(),
             hidden = prefs.getStringSet("hidden", d.hidden)!!.toSet(),
             widgetId = prefs.getInt("widgetId", d.widgetId),
@@ -106,6 +108,7 @@ class SettingsStore private constructor(context: Context) {
 
     companion object {
         private const val LABEL_SEPARATOR = "\t"
+        private val OLD_BUTTON_DEFAULTS = listOf(ButtonActions.COLOR, ButtonActions.WALLET, ButtonActions.TORCH)
         @Volatile private var instance: SettingsStore? = null
         fun get(context: Context): SettingsStore =
             instance ?: synchronized(this) {

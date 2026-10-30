@@ -1,7 +1,15 @@
 package cz.tejkl.klid.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,6 +42,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.tejkl.klid.AppEntry
+import cz.tejkl.klid.Contact
 import cz.tejkl.klid.NotificationItem
 import cz.tejkl.klid.R
 
@@ -47,6 +56,14 @@ sealed interface DrawerRow {
 
     data class App(val app: AppEntry) : DrawerRow {
         override val key get() = app.key
+    }
+
+    data class Person(val contact: Contact) : DrawerRow {
+        override val key get() = "c:${contact.id}"
+    }
+
+    data class Web(val query: String) : DrawerRow {
+        override val key get() = "web"
     }
 }
 
@@ -73,6 +90,8 @@ fun AppDrawer(
     notifications: Map<String, List<NotificationItem>>,
     menu: AppMenuActions,
     onLaunch: (AppEntry) -> Unit,
+    onContact: (Contact) -> Unit,
+    onWebSearch: (String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -105,9 +124,12 @@ fun AppDrawer(
         SearchField(
             query = query,
             onQueryChange = onQueryChange,
-            onGo = { rows.firstNotNullOfOrNull { (it as? DrawerRow.App)?.app }?.let(onLaunch) },
+            onGo = {
+                val app = rows.firstNotNullOfOrNull { (it as? DrawerRow.App)?.app }
+                if (app != null) onLaunch(app) else if (query.isNotBlank()) onWebSearch(query.trim())
+            },
         )
-        if (rows.isEmpty()) {
+        if (rows.none { it is DrawerRow.App } && query.isBlank()) {
             Text(
                 text = stringResource(R.string.no_results),
                 style = ShadowedText,
@@ -145,9 +167,43 @@ fun AppDrawer(
                         showReorder = false,
                         showPreview = false,
                     )
+
+                    is DrawerRow.Person -> ActionRow(
+                        text = row.contact.name,
+                        badge = row.contact.name.take(1).uppercase(),
+                    ) { onContact(row.contact) }
+
+                    is DrawerRow.Web -> ActionRow(
+                        text = stringResource(R.string.web_search, row.query),
+                        badge = "\u2197",
+                    ) { onWebSearch(row.query) }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ActionRow(text: String, badge: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(badge, style = ShadowedText, fontSize = 15.sp)
+        }
+        Spacer(Modifier.width(16.dp))
+        Text(text, style = ShadowedText, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

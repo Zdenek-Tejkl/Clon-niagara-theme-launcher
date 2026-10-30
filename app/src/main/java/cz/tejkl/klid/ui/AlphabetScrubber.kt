@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -37,13 +38,16 @@ fun AlphabetScrubber(
     onLetter: (String) -> Unit,
     onRelease: () -> Unit,
     modifier: Modifier = Modifier,
+    onDoubleTap: (() -> Unit)? = null,
 ) {
+    var lastTapAt by remember { mutableLongStateOf(0L) }
     var active by remember { mutableStateOf<Int?>(null) }
     var heightPx by remember { mutableIntStateOf(1) }
     val haptics = LocalHapticFeedback.current
     val currentLetters by rememberUpdatedState(letters)
     val currentOnLetter by rememberUpdatedState(onLetter)
     val currentOnRelease by rememberUpdatedState(onRelease)
+    val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
 
     fun select(y: Float) {
         val list = currentLetters
@@ -64,12 +68,26 @@ fun AlphabetScrubber(
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     down.consume()
-                    select(down.position.y)
+                    var moved = false
+                    // Při povoleném dvojklepnutí čekáme s výběrem písmene na pohyb prstu.
+                    if (currentOnDoubleTap == null) select(down.position.y)
                     while (true) {
                         val change = awaitPointerEvent().changes.firstOrNull() ?: break
                         if (!change.pressed) break
                         change.consume()
-                        select(change.position.y)
+                        if (abs(change.position.y - down.position.y) > viewConfiguration.touchSlop) moved = true
+                        if (moved || currentOnDoubleTap == null) select(change.position.y)
+                    }
+                    val doubleTap = currentOnDoubleTap
+                    if (doubleTap != null && !moved) {
+                        val now = down.uptimeMillis
+                        if (now - lastTapAt < viewConfiguration.doubleTapTimeoutMillis) {
+                            lastTapAt = 0L
+                            doubleTap()
+                        } else {
+                            lastTapAt = now
+                            select(down.position.y)
+                        }
                     }
                     active = null
                     currentOnRelease()

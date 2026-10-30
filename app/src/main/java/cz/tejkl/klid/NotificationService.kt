@@ -2,6 +2,10 @@ package cz.tejkl.klid
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.app.RemoteInput
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +18,22 @@ data class NotificationItem(
     val text: String,
     val postTime: Long,
     val contentIntent: PendingIntent?,
+    val reply: ReplyAction?,
 )
+
+/** Akce notifikace s textovým vstupem (např. "Odpovědět" v messengeru). */
+data class ReplyAction(val intent: PendingIntent, val remoteInput: RemoteInput) {
+    fun send(context: Context, text: String): Boolean = try {
+        val fill = Intent()
+        RemoteInput.addResultsToIntent(arrayOf(remoteInput), fill, Bundle().apply {
+            putCharSequence(remoteInput.resultKey, text)
+        })
+        intent.send(context, 0, fill)
+        true
+    } catch (_: PendingIntent.CanceledException) {
+        false
+    }
+}
 
 /** Aktuální notifikace podle balíčku, nejnovější první. */
 object NotificationHub {
@@ -58,6 +77,9 @@ class NotificationService : NotificationListenerService() {
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
         if (title.isBlank() && text.isBlank()) return null
-        return packageName to NotificationItem(key, title, text, postTime, notification.contentIntent)
+        val reply = notification.actions?.firstNotNullOfOrNull { action ->
+            action.remoteInputs?.firstOrNull { it.allowFreeFormInput }?.let { ReplyAction(action.actionIntent, it) }
+        }
+        return packageName to NotificationItem(key, title, text, postTime, notification.contentIntent, reply)
     }
 }

@@ -31,16 +31,40 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private val launcherApps = app.getSystemService(LauncherApps::class.java)
     private val userManager = app.getSystemService(UserManager::class.java)
     private val favoritesStore = FavoritesStore(app)
+    private val usageStore = UsageStore(app)
+    val settingsStore = SettingsStore.get(app)
+    val settings: StateFlow<Settings> = settingsStore.settings
 
     private val _apps = MutableStateFlow<List<AppEntry>>(emptyList())
-    val apps: StateFlow<List<AppEntry>> = _apps.asStateFlow()
+
+    /** Všechny aplikace včetně skrytých, abecedně. Pro hledání a správu skrytých. */
+    val allApps: StateFlow<List<AppEntry>> = _apps.asStateFlow()
 
     val favoriteKeys: StateFlow<List<String>> = favoritesStore.keys
+
+    /** Aplikace pro abecední seznam: bez skrytých, v rámci písmene případně podle používání. */
+    val drawerApps: StateFlow<List<AppEntry>> =
+        combine(_apps, settings, usageStore.scores) { apps, s, scores ->
+            val visible = apps.filter { it.key !in s.hidden }
+            if (!s.sortByUsage) visible
+            else groupConsecutive(visible).flatMap { group ->
+                group.sortedByDescending { scores[it.key] ?: 0f }
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val favorites: StateFlow<List<AppEntry>> =
         combine(_apps, favoritesStore.keys) { apps, keys ->
             val byKey = apps.associateBy { it.key }
             keys.mapNotNull { byKey[it] }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Často používané aplikace, které nejsou na ploše. */
+    val suggestions: StateFlow<List<AppEntry>> =
+        combine(_apps, favoritesStore.keys, settings, usageStore.scores) { apps, keys, s, scores ->
+            if (!s.suggestApps) return@combine emptyList()
+            apps.filter { it.key !in keys && it.key !in s.hidden && (scores[it.key] ?: 0f) >= 1f }
+                .sortedByDescending { scores[it.key] }
+                .take(SUGGESTION_COUNT)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val callback = object : LauncherApps.Callback() {
@@ -88,9 +112,16 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleFavorite(app: AppEntry) = favoritesStore.toggle(app.key)
     fun moveFavorite(app: AppEntry, delta: Int) = favoritesStore.move(app.key, delta)
 
+    fun toggleHidden(app: AppEntry) = settingsStore.update {
+        it.copy(hidden = if (app.key in it.hidden) it.hidden - app.key else it.hidden + app.key)
+    }
+
     fun launch(app: AppEntry) {
         try {
             launcherApps.startMainActivity(app.component, app.user, null, null)
+            usageStore.recordLaunch(app.key)
+            val s = settings.value
+            if (s.usageBreaker) BreakReminder.schedule(getApplication(), app.label, s.breakMinutes)
         } catch (e: Exception) {
             reload()
         }
@@ -111,6 +142,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun reply(item: NotificationItem, text: String) {
+        item.reply?.send(getApplication(), text)
+    }
+
     fun openAppInfo(app: AppEntry) {
         launcherApps.startAppDetailsActivity(app.component, app.user, null, null)
     }
@@ -120,6 +155,15 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             .putExtra(Intent.EXTRA_USER, app.user)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         getApplication<Application>().startActivity(intent)
+    }
+
+    private fun groupConsecutive(apps: List<AppEntry>): List<List<AppEntry>> {
+        val groups = mutableListOf<MutableList<AppEntry>>()
+        for (app in apps) {
+            if (groups.lastOrNull()?.first()?.section == app.section) groups.last() += app
+            else groups += mutableListOf(app)
+        }
+        return groups
     }
 
     private fun sectionOf(label: String): String {
@@ -135,5 +179,6 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         val CZECH_LETTERS = setOf('Č', 'Ř', 'Š', 'Ž')
+        const val SUGGESTION_COUNT = 4
     }
 }
